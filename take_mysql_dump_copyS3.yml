@@ -1,0 +1,63 @@
+- hosts: localhost
+  gather_facts: true
+  vars:
+    user: ubuntu
+    year: "{{ lookup('pipe','date +%Y') }}"
+    month: "{{ lookup('pipe','date +%m') }}"
+    date: "{{ lookup('pipe','date +%d%m%Y') }}"
+    time: "{{ lookup('pipe','date +%H') }}"
+    db: MySQL
+    db_name1: database
+
+    home_dir: /data
+    backup_dir1: "{{home_dir}}/db_dump/{{db}}/{{db_name1}}/daily"
+    backup_dir1_15: "{{home_dir}}/db_dump/{{db}}/{{db_name1}}/15thday"
+
+  tasks:
+
+    - name: "Create project directory {{backup_dir1}}/{{date}}"
+      file: path={{backup_dir1}} state=directory owner={{user}} group={{user}} mode=0770
+      become: true
+
+    - name: "Create project directory {{backup_dir1}}/{{date}}"
+      file: path={{backup_dir1_15}} state=directory owner={{user}} group={{user}} mode=0770
+      become: true
+
+    - name: "Create project directory {{backup_dir2}}/{{date}}"
+      file: path={{backup_dir2}} state=directory owner={{user}} group={{user}} mode=0770
+      become: true
+
+    - name: "Create project directory {{backup_dir2}}/{{date}}"
+      file: path={{backup_dir2_15}} state=directory owner={{user}} group={{user}} mode=0770
+      become: true
+
+    - name: "Taking dump of {{db_name1}} database under {{backup_dir}}/name-date.sql.gz directory"
+      shell: mysqldump -h <host> -u <username> --password=<password> database > /data/db_dump/MySQL/database/daily/database_$(date +%F-%H).sql.gz
+      become: true
+
+    - name:
+      shell: |
+       z=$(date +%d)
+       echo $z
+       if [ $z = 15 ]; then
+       # mysqldump -h <host> -u <username> --password=<password> database > /data/db_dump/MySQL/database/15thday/database_$(date +%F-%H).sql.gz
+         aws s3 cp /data/db_dump/MySQL/database/daily/database_$(date +%F-%H).sql.gz s3://my-db-backup/my-db/15thday/$(date +%Y)/$(date +%m)/$(date +%F)/
+       fi
+
+    - name: copy to s3
+      shell: |
+       aws s3 cp /data/db_dump/MySQL/database/daily/database_$(date +%F-%H).sql.gz s3://my-db-backup/my-db/daily/$(date +%Y)/$(date +%m)/$(date +%F)/
+      become: true
+
+#    - name: copying to s3
+ #     s3_sync:
+  #       bucket: my-db-backup
+   #      file_root: /data/db_dump/MySQL/database/
+    #     key_prefix: my-db/{{year}}/{{month}}
+     # become: true
+
+    - name: remove .gz file older files in local
+      shell: |
+       find /data/db_dump/MySQL/database/daily -type f -mmin +1440 -name '*.gz' -execdir rm -- '{}' \;
+       find /data/db_dump/MySQL/database/15thday -type f -mmin +1440 -name '*.gz' -execdir rm -- '{}' \;
+      become: true
