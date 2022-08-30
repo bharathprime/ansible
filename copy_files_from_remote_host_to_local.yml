@@ -1,0 +1,14 @@
+- hosts: <remote host>
+  gather_facts: true
+
+  tasks:
+    - name: "fetch the data from jenkins server from /var/lib/jenkins/workspace/asg directory"
+      synchronize:
+       src: /var/lib/jenkins/workspace/asg/*
+       dest: /tmp/orbit_asg_tmp
+       mode: pull
+
+    - name: "Change file permission"
+#      file: dest=/tmp/orbit_asg_tmp owner=ubuntu group=ubuntu mode=774 recurse=yes
+      file: dest=/tmp/orbit_asg_tmp owner=ubuntu group=ubuntu mode=u=rwX,g=rwX,o=r recurse=yes
+      delegate_to: localhost
